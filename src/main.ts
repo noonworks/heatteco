@@ -20,6 +20,9 @@ const SD_D = {
 const SCALE_MIN = 1;
 const SCALE_MAX = 300;
 const CONTROL_INTERVAL = 300;
+const COPY_TEXT =
+  "Copyright (C) 2010 - 2019 SQUARE ENIX CO., LTD. All Rights Reserved.";
+const WIDTH = 720;
 
 class HeattecoGenerator {
   private _canvas?: HTMLCanvasElement;
@@ -32,6 +35,7 @@ class HeattecoGenerator {
   private _img?: HTMLImageElement;
   private _scale: IPictureScale = DEFAULT_SCALE;
   private _drawing = false;
+  private _copy = true;
 
   public get loaded(): boolean {
     return this._back_loaded && this._logo_loaded;
@@ -88,6 +92,10 @@ class HeattecoGenerator {
     this._scale = s;
   }
 
+  public setCopy(c: boolean) {
+    this._copy = c;
+  }
+
   public draw(): void {
     if (!this.loaded || !this._ctx) return;
     if (this._drawing) return;
@@ -100,6 +108,8 @@ class HeattecoGenerator {
     this.drawText();
     // add logo
     this._ctx.drawImage(this._logo, 0, 0);
+    // add copy
+    this.drawCopy();
     this._drawing = false;
   }
 
@@ -121,7 +131,11 @@ class HeattecoGenerator {
   }
 
   private drawText(): void {
-    if (!this.loaded || !this._ctx || !this._canvas) return;
+    if (!this.loaded || !this._canvas) return;
+    this._canvas.style.letterSpacing = "0.25em";
+    this._ctx = this._canvas.getContext("2d") || undefined;
+    if (!this._ctx) return;
+    this._ctx.textAlign = "left";
     if (this._t.big.length > 0) {
       this._ctx.font = "bold 28px " + FONT_NAME;
       this._ctx.fillText(this._t.big, 16, 66);
@@ -134,6 +148,16 @@ class HeattecoGenerator {
       this._ctx.font = "16px " + FONT_NAME;
       this._ctx.fillText(this._t.small[1], 20, 156);
     }
+  }
+
+  private drawCopy(): void {
+    if (!this.loaded || !this._canvas || !this._copy) return;
+    this._canvas.style.letterSpacing = "0";
+    this._ctx = this._canvas.getContext("2d") || undefined;
+    if (!this._ctx) return;
+    this._ctx.textAlign = "right";
+    this._ctx.font = "9px " + FONT_NAME;
+    this._ctx.fillText(COPY_TEXT, WIDTH - 10, 176);
   }
 }
 
@@ -167,6 +191,8 @@ class Controler {
   private _scaleval = 100;
   private _scale = DEFAULT_SCALE;
   private _scaleQueueId = -1;
+  // copy
+  private _ctl_cp?: HTMLInputElement;
   // generator
   private _ht?: HeattecoGenerator;
 
@@ -179,7 +205,8 @@ class Controler {
       !this._ctl_pr ||
       this._ctl_dr.length != 8 ||
       !this._ctl_sv ||
-      this._ctl_sb.length != 4
+      this._ctl_sb.length != 4 ||
+      !this._ctl_cp
     );
   }
 
@@ -246,6 +273,18 @@ class Controler {
         });
         if (b10) this._ctl_sb.push(b10);
       });
+    }
+    // copy
+    {
+      const c = document.getElementById("copy");
+      if (c) {
+        this._ctl_cp = c as HTMLInputElement;
+        this._ctl_cp.addEventListener("change", () => {
+          if (!this._ctl_cp || !this._ht) return;
+          this._ht.setCopy(this._ctl_cp.checked);
+          this._ht.draw();
+        });
+      }
     }
   }
 

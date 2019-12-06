@@ -19,6 +19,8 @@ var SD_D = {
 var SCALE_MIN = 1;
 var SCALE_MAX = 300;
 var CONTROL_INTERVAL = 300;
+var COPY_TEXT = "Copyright (C) 2010 - 2019 SQUARE ENIX CO., LTD. All Rights Reserved.";
+var WIDTH = 720;
 var HeattecoGenerator = /** @class */ (function () {
     function HeattecoGenerator() {
         var _this = this;
@@ -27,6 +29,7 @@ var HeattecoGenerator = /** @class */ (function () {
         this._t = EMPTY_TEXT;
         this._scale = DEFAULT_SCALE;
         this._drawing = false;
+        this._copy = true;
         // img
         this._back = new Image();
         this._logo = new Image();
@@ -81,6 +84,9 @@ var HeattecoGenerator = /** @class */ (function () {
     HeattecoGenerator.prototype.setScale = function (s) {
         this._scale = s;
     };
+    HeattecoGenerator.prototype.setCopy = function (c) {
+        this._copy = c;
+    };
     HeattecoGenerator.prototype.draw = function () {
         if (!this.loaded || !this._ctx)
             return;
@@ -95,6 +101,8 @@ var HeattecoGenerator = /** @class */ (function () {
         this.drawText();
         // add logo
         this._ctx.drawImage(this._logo, 0, 0);
+        // add copy
+        this.drawCopy();
         this._drawing = false;
     };
     HeattecoGenerator.prototype.drawPicture = function () {
@@ -105,8 +113,13 @@ var HeattecoGenerator = /** @class */ (function () {
         this._ctx.drawImage(this._img, 0, 0, this._img.naturalWidth, this._img.naturalHeight, this._scale.x, this._scale.y, w, h);
     };
     HeattecoGenerator.prototype.drawText = function () {
-        if (!this.loaded || !this._ctx || !this._canvas)
+        if (!this.loaded || !this._canvas)
             return;
+        this._canvas.style.letterSpacing = "0.25em";
+        this._ctx = this._canvas.getContext("2d") || undefined;
+        if (!this._ctx)
+            return;
+        this._ctx.textAlign = "left";
         if (this._t.big.length > 0) {
             this._ctx.font = "bold 28px " + FONT_NAME;
             this._ctx.fillText(this._t.big, 16, 66);
@@ -119,6 +132,17 @@ var HeattecoGenerator = /** @class */ (function () {
             this._ctx.font = "16px " + FONT_NAME;
             this._ctx.fillText(this._t.small[1], 20, 156);
         }
+    };
+    HeattecoGenerator.prototype.drawCopy = function () {
+        if (!this.loaded || !this._canvas || !this._copy)
+            return;
+        this._canvas.style.letterSpacing = "0";
+        this._ctx = this._canvas.getContext("2d") || undefined;
+        if (!this._ctx)
+            return;
+        this._ctx.textAlign = "right";
+        this._ctx.font = "9px " + FONT_NAME;
+        this._ctx.fillText(COPY_TEXT, WIDTH - 10, 176);
     };
     return HeattecoGenerator;
 }());
@@ -210,6 +234,19 @@ var Controler = /** @class */ (function () {
                     _this._ctl_sb.push(b10);
             });
         }
+        // copy
+        {
+            var c = document.getElementById("copy");
+            if (c) {
+                this._ctl_cp = c;
+                this._ctl_cp.addEventListener("change", function () {
+                    if (!_this._ctl_cp || !_this._ht)
+                        return;
+                    _this._ht.setCopy(_this._ctl_cp.checked);
+                    _this._ht.draw();
+                });
+            }
+        }
     }
     Object.defineProperty(Controler.prototype, "loaded", {
         get: function () {
@@ -220,7 +257,8 @@ var Controler = /** @class */ (function () {
                 !this._ctl_pr ||
                 this._ctl_dr.length != 8 ||
                 !this._ctl_sv ||
-                this._ctl_sb.length != 4);
+                this._ctl_sb.length != 4 ||
+                !this._ctl_cp);
         },
         enumerable: true,
         configurable: true
