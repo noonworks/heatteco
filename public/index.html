@@ -28,6 +28,9 @@
       input[type="text"] {
         width: 20em;
       }
+      input[type="number"] {
+        width: 3em;
+      }
     </style>
   </head>
   <body>
@@ -35,7 +38,7 @@
       id="generated"
       width="720"
       height="188"
-      style="width: 720px; height: 188px; letter-spacing: 0.25em;"
+      style="letter-spacing: 0.25em; max-width:100%;"
     ></canvas>
     <form>
       <input
@@ -50,6 +53,30 @@
       <br />
       <br />
       <input type="file" id="picfile" name="picfile" accept="image/png" />
+      <br />
+      <br />
+      <label for="scale">大きさ（％）</label>
+      <button type="button" id="minus10">-10</button>
+      <button type="button" id="minus1">-1</button>
+      <input type="number" name="scale" id="scale" value="100" />
+      <button type="button" id="plus1">+1</button>
+      <button type="button" id="plus10">+10</button>
+      <br />
+      <label>位置</label>
+      <br />
+      <div style="text-align: center; display: inline-block">
+        <button type="button" id="up">▲ 1</button>
+        <button type="button" id="up10">▲▲ 10</button>
+        <br />
+        <button type="button" id="left10">◀◀ 10</button>
+        <button type="button" id="left">◀ 1</button>
+        <button type="button" id="pos_reset">リセット</button>
+        <button type="button" id="right">1 ▶</button>
+        <button type="button" id="right10">10 ▶▶</button>
+        <br />
+        <button type="button" id="down">▼ 1</button>
+        <button type="button" id="down10">▼▼ 10</button>
+      </div>
     </form>
     <span style="font-family: 'Noto Sans JP'; color:white"><b>b</b>n</span>
     <script src="js/main.js"></script>

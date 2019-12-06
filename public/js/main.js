@@ -2,13 +2,23 @@
 var ERROR_MSG = "ごめんなさい！エラーです。非対応ブラウザかも？";
 var ERROR_TIMEOUT = 10000;
 var EMPTY_TEXT = { big: "", small: ["", ""] };
+var DEFAULT_SCALE = { scale: 100, x: 0, y: 0 };
 var FONT_NAME = "'Noto Sans JP'";
+var DIRECTIONS = ["left", "up", "down", "right"];
+var D_D = {
+    left: { x: -1, y: 0 },
+    up: { x: 0, y: -1 },
+    down: { x: 0, y: 1 },
+    right: { x: 1, y: 0 }
+};
+var CONTROL_INTERVAL = 300;
 var HeattecoGenerator = /** @class */ (function () {
     function HeattecoGenerator() {
         var _this = this;
         this._back_loaded = false;
         this._logo_loaded = false;
         this._t = EMPTY_TEXT;
+        this._scale = DEFAULT_SCALE;
         this._drawing = false;
         // img
         this._back = new Image();
@@ -61,6 +71,9 @@ var HeattecoGenerator = /** @class */ (function () {
     HeattecoGenerator.prototype.setImage = function (img) {
         this._img = img;
     };
+    HeattecoGenerator.prototype.setScale = function (s) {
+        this._scale = s;
+    };
     HeattecoGenerator.prototype.draw = function () {
         if (!this.loaded || !this._ctx)
             return;
@@ -80,7 +93,12 @@ var HeattecoGenerator = /** @class */ (function () {
     HeattecoGenerator.prototype.drawPicture = function () {
         if (!this.loaded || !this._ctx || !this._img)
             return;
-        this._ctx.drawImage(this._img, 0, 0);
+        console.log(this._scale);
+        // original size
+        console.log("" + this._img.naturalWidth + " x " + this._img.naturalHeight);
+        var w = this._img.naturalWidth;
+        var h = this._img.naturalHeight;
+        this._ctx.drawImage(this._img, 0, 0, this._img.naturalWidth, this._img.naturalHeight, this._scale.x, this._scale.y, w, h);
     };
     HeattecoGenerator.prototype.drawText = function () {
         if (!this.loaded || !this._ctx || !this._canvas)
@@ -104,6 +122,12 @@ var Controler = /** @class */ (function () {
     function Controler() {
         var _this = this;
         this._text = EMPTY_TEXT;
+        this._ctl_dr = [];
+        this._x = 0;
+        this._y = 0;
+        // scale
+        this._scale = DEFAULT_SCALE;
+        this._scaleQueueId = -1;
         // text
         var onchangetext = function () { return _this.onChangeText(); };
         this._ctl_b = this.getTextInput("bigtext", onchangetext);
@@ -124,11 +148,34 @@ var Controler = /** @class */ (function () {
                 this._ctl_file = pf;
             }
         }
+        // pos
+        this._ctl_pr = this.getButton("pos_reset", function () { return _this.onResetPos(); });
+        DIRECTIONS.forEach(function (d) {
+            var dd = D_D[d];
+            var b = _this.getButton(d, function () {
+                _this._x += dd.x;
+                _this._y += dd.y;
+                _this.queuePictureScale();
+            });
+            if (b)
+                _this._ctl_dr.push(b);
+            var b10 = _this.getButton(d + "10", function () {
+                _this._x += dd.x * 10;
+                _this._y += dd.y * 10;
+                _this.queuePictureScale();
+            });
+            if (b10)
+                _this._ctl_dr.push(b10);
+        });
     }
     Object.defineProperty(Controler.prototype, "loaded", {
-        // private _bigtext: string = "";
         get: function () {
-            return !(!this._ctl_b || !this._ctl_s1 || !this._ctl_s2 || !this._ctl_file);
+            return !(!this._ctl_b ||
+                !this._ctl_s1 ||
+                !this._ctl_s2 ||
+                !this._ctl_file ||
+                !this._ctl_pr ||
+                this._ctl_dr.length != 8);
         },
         enumerable: true,
         configurable: true
@@ -136,6 +183,41 @@ var Controler = /** @class */ (function () {
     Controler.prototype.setCanvas = function (ht) {
         this._ht = ht;
         this.onChangeText();
+    };
+    Controler.prototype.getButton = function (id, f) {
+        var b = document.getElementById(id);
+        if (b) {
+            b.addEventListener("click", f);
+            return b;
+        }
+        return undefined;
+    };
+    Controler.prototype.queuePictureScale = function () {
+        var _this = this;
+        var s = {
+            scale: 100,
+            x: this._x,
+            y: this._y
+        };
+        if (this._scale.scale == s.scale &&
+            this._scale.x == s.x &&
+            this._scale.y == s.y)
+            return;
+        this._scale = s;
+        clearTimeout(this._scaleQueueId);
+        this._scaleQueueId = setTimeout(function () {
+            clearTimeout(_this._scaleQueueId);
+            _this._scaleQueueId = -1;
+            if (!_this._ht)
+                return;
+            _this._ht.setScale(_this._scale);
+            _this._ht.draw();
+        }, CONTROL_INTERVAL);
+    };
+    Controler.prototype.onResetPos = function () {
+        this._x = 0;
+        this._y = 0;
+        this.queuePictureScale();
     };
     Controler.prototype.setFile = function (file) {
         var _this = this;
@@ -149,6 +231,7 @@ var Controler = /** @class */ (function () {
             img.onload = function () {
                 if (!_this._ht)
                     return;
+                _this.onResetPos();
                 _this._ht.setImage(img);
                 _this._ht.draw();
             };

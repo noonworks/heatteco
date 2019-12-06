@@ -1,7 +1,17 @@
 const ERROR_MSG = "ごめんなさい！エラーです。非対応ブラウザかも？";
 const ERROR_TIMEOUT = 10000;
 const EMPTY_TEXT: ITextData = { big: "", small: ["", ""] };
+const DEFAULT_SCALE: IPictureScale = { scale: 100, x: 0, y: 0 };
 const FONT_NAME = "'Noto Sans JP'";
+type TDirections = "left" | "up" | "down" | "right";
+const DIRECTIONS: TDirections[] = ["left", "up", "down", "right"];
+const D_D = {
+  left: { x: -1, y: 0 },
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  right: { x: 1, y: 0 }
+};
+const CONTROL_INTERVAL = 300;
 
 class HeattecoGenerator {
   private _canvas?: HTMLCanvasElement;
@@ -12,6 +22,7 @@ class HeattecoGenerator {
   private _logo_loaded = false;
   private _t: ITextData = EMPTY_TEXT;
   private _img?: HTMLImageElement;
+  private _scale: IPictureScale = DEFAULT_SCALE;
   private _drawing = false;
 
   public get loaded(): boolean {
@@ -65,6 +76,10 @@ class HeattecoGenerator {
     this._img = img;
   }
 
+  public setScale(s: IPictureScale) {
+    this._scale = s;
+  }
+
   public draw(): void {
     if (!this.loaded || !this._ctx) return;
     if (this._drawing) return;
@@ -82,7 +97,22 @@ class HeattecoGenerator {
 
   private drawPicture(): void {
     if (!this.loaded || !this._ctx || !this._img) return;
-    this._ctx.drawImage(this._img, 0, 0);
+    console.log(this._scale);
+    // original size
+    console.log("" + this._img.naturalWidth + " x " + this._img.naturalHeight);
+    const w = this._img.naturalWidth;
+    const h = this._img.naturalHeight;
+    this._ctx.drawImage(
+      this._img,
+      0,
+      0,
+      this._img.naturalWidth,
+      this._img.naturalHeight,
+      this._scale.x,
+      this._scale.y,
+      w,
+      h
+    );
   }
 
   private drawText(): void {
@@ -107,6 +137,12 @@ interface ITextData {
   small: string[];
 }
 
+interface IPictureScale {
+  scale: number;
+  x: number;
+  y: number;
+}
+
 class Controler {
   // text
   private _ctl_b?: HTMLInputElement;
@@ -115,12 +151,26 @@ class Controler {
   private _text: ITextData = EMPTY_TEXT;
   // file
   private _ctl_file?: HTMLInputElement;
-  //
+  // pos
+  private _ctl_pr?: HTMLButtonElement;
+  private _ctl_dr: HTMLButtonElement[] = [];
+  private _x = 0;
+  private _y = 0;
+  // scale
+  private _scale = DEFAULT_SCALE;
+  private _scaleQueueId = -1;
+  // generator
   private _ht?: HeattecoGenerator;
-  // private _bigtext: string = "";
 
   public get loaded(): boolean {
-    return !(!this._ctl_b || !this._ctl_s1 || !this._ctl_s2 || !this._ctl_file);
+    return !(
+      !this._ctl_b ||
+      !this._ctl_s1 ||
+      !this._ctl_s2 ||
+      !this._ctl_file ||
+      !this._ctl_pr ||
+      this._ctl_dr.length != 8
+    );
   }
 
   constructor() {
@@ -142,11 +192,66 @@ class Controler {
         this._ctl_file = pf as HTMLInputElement;
       }
     }
+    // pos
+    this._ctl_pr = this.getButton("pos_reset", () => this.onResetPos());
+    DIRECTIONS.forEach(d => {
+      const dd = D_D[d];
+      const b = this.getButton(d, () => {
+        this._x += dd.x;
+        this._y += dd.y;
+        this.queuePictureScale();
+      });
+      if (b) this._ctl_dr.push(b);
+      const b10 = this.getButton(d + "10", () => {
+        this._x += dd.x * 10;
+        this._y += dd.y * 10;
+        this.queuePictureScale();
+      });
+      if (b10) this._ctl_dr.push(b10);
+    });
   }
 
   public setCanvas(ht: HeattecoGenerator): void {
     this._ht = ht;
     this.onChangeText();
+  }
+
+  private getButton(id: string, f: () => void): HTMLButtonElement | undefined {
+    const b = document.getElementById(id);
+    if (b) {
+      b.addEventListener("click", f);
+      return b as HTMLButtonElement;
+    }
+    return undefined;
+  }
+
+  private queuePictureScale(): void {
+    const s: IPictureScale = {
+      scale: 100,
+      x: this._x,
+      y: this._y
+    };
+    if (
+      this._scale.scale == s.scale &&
+      this._scale.x == s.x &&
+      this._scale.y == s.y
+    )
+      return;
+    this._scale = s;
+    clearTimeout(this._scaleQueueId);
+    this._scaleQueueId = setTimeout(() => {
+      clearTimeout(this._scaleQueueId);
+      this._scaleQueueId = -1;
+      if (!this._ht) return;
+      this._ht.setScale(this._scale);
+      this._ht.draw();
+    }, CONTROL_INTERVAL);
+  }
+
+  private onResetPos() {
+    this._x = 0;
+    this._y = 0;
+    this.queuePictureScale();
   }
 
   private setFile(file: File) {
@@ -157,6 +262,7 @@ class Controler {
       if (!evt || !evt.target || !evt.target.result) return;
       img.onload = () => {
         if (!this._ht) return;
+        this.onResetPos();
         this._ht.setImage(img);
         this._ht.draw();
       };
