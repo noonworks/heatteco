@@ -11,6 +11,8 @@ class HeattecoGenerator {
   private _logo: HTMLImageElement;
   private _logo_loaded = false;
   private _t: ITextData = EMPTY_TEXT;
+  private _img?: HTMLImageElement;
+  private _drawing = false;
 
   public get loaded(): boolean {
     return this._back_loaded && this._logo_loaded;
@@ -59,15 +61,28 @@ class HeattecoGenerator {
     this._t = t;
   }
 
+  public setImage(img: HTMLImageElement) {
+    this._img = img;
+  }
+
   public draw(): void {
     if (!this.loaded || !this._ctx) return;
+    if (this._drawing) return;
+    this._drawing = true;
     // clear
     this._ctx.drawImage(this._back, 0, 0);
-    // [TODO] add picture
+    // add picture
+    this.drawPicture();
     // add text
     this.drawText();
     // add logo
     this._ctx.drawImage(this._logo, 0, 0);
+    this._drawing = false;
+  }
+
+  private drawPicture(): void {
+    if (!this.loaded || !this._ctx || !this._img) return;
+    this._ctx.drawImage(this._img, 0, 0);
   }
 
   private drawText(): void {
@@ -92,44 +107,62 @@ interface ITextData {
   small: string[];
 }
 
-interface IControler {
-  text: ITextData;
-}
-
 class Controler {
   // text
   private _ctl_b?: HTMLInputElement;
   private _ctl_s1?: HTMLInputElement;
   private _ctl_s2?: HTMLInputElement;
   private _text: ITextData = EMPTY_TEXT;
+  // file
+  private _ctl_file?: HTMLInputElement;
   //
   private _ht?: HeattecoGenerator;
   // private _bigtext: string = "";
 
   public get loaded(): boolean {
-    return !(!this._ctl_b || !this._ctl_s1 || !this._ctl_s2);
-  }
-
-  public get text(): ITextData {
-    if (!this._ctl_b || !this._ctl_s1 || !this._ctl_s2) return EMPTY_TEXT;
-    return {
-      big: this._ctl_b.value,
-      small: [this._ctl_s1.value, this._ctl_s2.value]
-    };
+    return !(!this._ctl_b || !this._ctl_s1 || !this._ctl_s2 || !this._ctl_file);
   }
 
   constructor() {
-    const onchangetext = () => {
-      this.onChangeText();
-    };
+    // text
+    const onchangetext = () => this.onChangeText();
     this._ctl_b = this.getTextInput("bigtext", onchangetext);
     this._ctl_s1 = this.getTextInput("smalltext1", onchangetext);
     this._ctl_s2 = this.getTextInput("smalltext2", onchangetext);
+    // picfile
+    {
+      const pf = document.getElementById("picfile");
+      if (pf) {
+        pf.addEventListener("change", event => {
+          const tg = event.target ? (event.target as HTMLInputElement) : null;
+          if (!tg || !tg.files || tg.files.length == 0) return;
+          const file = tg.files[0];
+          if (file) this.setFile(file);
+        });
+        this._ctl_file = pf as HTMLInputElement;
+      }
+    }
   }
 
   public setCanvas(ht: HeattecoGenerator): void {
     this._ht = ht;
     this.onChangeText();
+  }
+
+  private setFile(file: File) {
+    if (!this._ht) return;
+    const img = new Image();
+    const fr = new FileReader();
+    fr.onload = evt => {
+      if (!evt || !evt.target || !evt.target.result) return;
+      img.onload = () => {
+        if (!this._ht) return;
+        this._ht.setImage(img);
+        this._ht.draw();
+      };
+      img.src = evt.target.result as string;
+    };
+    fr.readAsDataURL(file);
   }
 
   private onChangeText() {

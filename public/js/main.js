@@ -9,6 +9,7 @@ var HeattecoGenerator = /** @class */ (function () {
         this._back_loaded = false;
         this._logo_loaded = false;
         this._t = EMPTY_TEXT;
+        this._drawing = false;
         // img
         this._back = new Image();
         this._logo = new Image();
@@ -57,16 +58,29 @@ var HeattecoGenerator = /** @class */ (function () {
     HeattecoGenerator.prototype.setText = function (t) {
         this._t = t;
     };
+    HeattecoGenerator.prototype.setImage = function (img) {
+        this._img = img;
+    };
     HeattecoGenerator.prototype.draw = function () {
         if (!this.loaded || !this._ctx)
             return;
+        if (this._drawing)
+            return;
+        this._drawing = true;
         // clear
         this._ctx.drawImage(this._back, 0, 0);
-        // [TODO] add picture
+        // add picture
+        this.drawPicture();
         // add text
         this.drawText();
         // add logo
         this._ctx.drawImage(this._logo, 0, 0);
+        this._drawing = false;
+    };
+    HeattecoGenerator.prototype.drawPicture = function () {
+        if (!this.loaded || !this._ctx || !this._img)
+            return;
+        this._ctx.drawImage(this._img, 0, 0);
     };
     HeattecoGenerator.prototype.drawText = function () {
         if (!this.loaded || !this._ctx || !this._canvas)
@@ -90,29 +104,31 @@ var Controler = /** @class */ (function () {
     function Controler() {
         var _this = this;
         this._text = EMPTY_TEXT;
-        var onchangetext = function () {
-            _this.onChangeText();
-        };
+        // text
+        var onchangetext = function () { return _this.onChangeText(); };
         this._ctl_b = this.getTextInput("bigtext", onchangetext);
         this._ctl_s1 = this.getTextInput("smalltext1", onchangetext);
         this._ctl_s2 = this.getTextInput("smalltext2", onchangetext);
+        // picfile
+        {
+            var pf = document.getElementById("picfile");
+            if (pf) {
+                pf.addEventListener("change", function (event) {
+                    var tg = event.target ? event.target : null;
+                    if (!tg || !tg.files || tg.files.length == 0)
+                        return;
+                    var file = tg.files[0];
+                    if (file)
+                        _this.setFile(file);
+                });
+                this._ctl_file = pf;
+            }
+        }
     }
     Object.defineProperty(Controler.prototype, "loaded", {
         // private _bigtext: string = "";
         get: function () {
-            return !(!this._ctl_b || !this._ctl_s1 || !this._ctl_s2);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Controler.prototype, "text", {
-        get: function () {
-            if (!this._ctl_b || !this._ctl_s1 || !this._ctl_s2)
-                return EMPTY_TEXT;
-            return {
-                big: this._ctl_b.value,
-                small: [this._ctl_s1.value, this._ctl_s2.value]
-            };
+            return !(!this._ctl_b || !this._ctl_s1 || !this._ctl_s2 || !this._ctl_file);
         },
         enumerable: true,
         configurable: true
@@ -120,6 +136,25 @@ var Controler = /** @class */ (function () {
     Controler.prototype.setCanvas = function (ht) {
         this._ht = ht;
         this.onChangeText();
+    };
+    Controler.prototype.setFile = function (file) {
+        var _this = this;
+        if (!this._ht)
+            return;
+        var img = new Image();
+        var fr = new FileReader();
+        fr.onload = function (evt) {
+            if (!evt || !evt.target || !evt.target.result)
+                return;
+            img.onload = function () {
+                if (!_this._ht)
+                    return;
+                _this._ht.setImage(img);
+                _this._ht.draw();
+            };
+            img.src = evt.target.result;
+        };
+        fr.readAsDataURL(file);
     };
     Controler.prototype.onChangeText = function () {
         if (!this._ctl_b || !this._ctl_s1 || !this._ctl_s2)
