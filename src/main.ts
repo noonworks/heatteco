@@ -74,10 +74,9 @@ class HeattecoGenerator {
     this._logo.src = "img/logo.png";
   }
 
-  public save() {
-    if (!this.loaded || !this._canvas) return;
-    const url = this._canvas.toDataURL();
-    console.log(url);
+  public save(): string {
+    if (!this.loaded || !this._canvas) return "";
+    return this._canvas.toDataURL();
   }
 
   public setText(t: ITextData) {
@@ -193,6 +192,10 @@ class Controler {
   private _scaleQueueId = -1;
   // copy
   private _ctl_cp?: HTMLInputElement;
+  // save
+  private _ctl_save?: HTMLButtonElement;
+  private _lnk_dl?: HTMLLinkElement;
+  private _img_dl?: HTMLImageElement;
   // generator
   private _ht?: HeattecoGenerator;
 
@@ -206,7 +209,10 @@ class Controler {
       this._ctl_dr.length != 8 ||
       !this._ctl_sv ||
       this._ctl_sb.length != 4 ||
-      !this._ctl_cp
+      !this._ctl_cp ||
+      !this._ctl_save ||
+      !this._lnk_dl ||
+      !this._img_dl
     );
   }
 
@@ -285,6 +291,28 @@ class Controler {
           this._ht.draw();
         });
       }
+    }
+    // save
+    {
+      const a = document.getElementById("dl_link");
+      if (a) {
+        this._lnk_dl = a as HTMLLinkElement;
+      }
+      const img = document.getElementById("result");
+      if (img) {
+        this._img_dl = img as HTMLImageElement;
+      }
+      this._ctl_save = this.getButton("save", () => {
+        if (!this._ht || !this._lnk_dl) return;
+        const url = this._ht.save();
+        if (url.length === 0) return;
+        this._lnk_dl.href = url;
+        if (this._img_dl) {
+          this._img_dl.src = url;
+          this._img_dl.style.visibility = "visible";
+        }
+        this._lnk_dl.click();
+      });
     }
   }
 

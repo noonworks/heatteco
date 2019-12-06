@@ -71,9 +71,8 @@ var HeattecoGenerator = /** @class */ (function () {
     });
     HeattecoGenerator.prototype.save = function () {
         if (!this.loaded || !this._canvas)
-            return;
-        var url = this._canvas.toDataURL();
-        console.log(url);
+            return "";
+        return this._canvas.toDataURL();
     };
     HeattecoGenerator.prototype.setText = function (t) {
         this._t = t;
@@ -247,6 +246,30 @@ var Controler = /** @class */ (function () {
                 });
             }
         }
+        // save
+        {
+            var a = document.getElementById("dl_link");
+            if (a) {
+                this._lnk_dl = a;
+            }
+            var img = document.getElementById("result");
+            if (img) {
+                this._img_dl = img;
+            }
+            this._ctl_save = this.getButton("save", function () {
+                if (!_this._ht || !_this._lnk_dl)
+                    return;
+                var url = _this._ht.save();
+                if (url.length === 0)
+                    return;
+                _this._lnk_dl.href = url;
+                if (_this._img_dl) {
+                    _this._img_dl.src = url;
+                    _this._img_dl.style.visibility = "visible";
+                }
+                _this._lnk_dl.click();
+            });
+        }
     }
     Object.defineProperty(Controler.prototype, "loaded", {
         get: function () {
@@ -258,7 +281,10 @@ var Controler = /** @class */ (function () {
                 this._ctl_dr.length != 8 ||
                 !this._ctl_sv ||
                 this._ctl_sb.length != 4 ||
-                !this._ctl_cp);
+                !this._ctl_cp ||
+                !this._ctl_save ||
+                !this._lnk_dl ||
+                !this._img_dl);
         },
         enumerable: true,
         configurable: true
