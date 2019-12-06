@@ -11,6 +11,14 @@ const D_D = {
   down: { x: 0, y: 1 },
   right: { x: 1, y: 0 }
 };
+type TSDirections = "minus" | "plus";
+const SCALE_DIRECTIONS: TSDirections[] = ["minus", "plus"];
+const SD_D = {
+  minus: -1,
+  plus: 1
+};
+const SCALE_MIN = 1;
+const SCALE_MAX = 300;
 const CONTROL_INTERVAL = 300;
 
 class HeattecoGenerator {
@@ -97,11 +105,8 @@ class HeattecoGenerator {
 
   private drawPicture(): void {
     if (!this.loaded || !this._ctx || !this._img) return;
-    console.log(this._scale);
-    // original size
-    console.log("" + this._img.naturalWidth + " x " + this._img.naturalHeight);
-    const w = this._img.naturalWidth;
-    const h = this._img.naturalHeight;
+    const w = (this._img.naturalWidth * this._scale.scale) / 100;
+    const h = (this._img.naturalHeight * this._scale.scale) / 100;
     this._ctx.drawImage(
       this._img,
       0,
@@ -157,6 +162,9 @@ class Controler {
   private _x = 0;
   private _y = 0;
   // scale
+  private _ctl_sb: HTMLButtonElement[] = [];
+  private _ctl_sv?: HTMLInputElement;
+  private _scaleval = 100;
   private _scale = DEFAULT_SCALE;
   private _scaleQueueId = -1;
   // generator
@@ -169,16 +177,20 @@ class Controler {
       !this._ctl_s2 ||
       !this._ctl_file ||
       !this._ctl_pr ||
-      this._ctl_dr.length != 8
+      this._ctl_dr.length != 8 ||
+      !this._ctl_sv ||
+      this._ctl_sb.length != 4
     );
   }
 
   constructor() {
     // text
-    const onchangetext = () => this.onChangeText();
-    this._ctl_b = this.getTextInput("bigtext", onchangetext);
-    this._ctl_s1 = this.getTextInput("smalltext1", onchangetext);
-    this._ctl_s2 = this.getTextInput("smalltext2", onchangetext);
+    {
+      const onchangetext = () => this.onChangeText();
+      this._ctl_b = this.getTextInput("bigtext", onchangetext);
+      this._ctl_s1 = this.getTextInput("smalltext1", onchangetext);
+      this._ctl_s2 = this.getTextInput("smalltext2", onchangetext);
+    }
     // picfile
     {
       const pf = document.getElementById("picfile");
@@ -193,22 +205,48 @@ class Controler {
       }
     }
     // pos
-    this._ctl_pr = this.getButton("pos_reset", () => this.onResetPos());
-    DIRECTIONS.forEach(d => {
-      const dd = D_D[d];
-      const b = this.getButton(d, () => {
-        this._x += dd.x;
-        this._y += dd.y;
-        this.queuePictureScale();
+    {
+      this._ctl_pr = this.getButton("pos_reset", () => this.onResetPos());
+      DIRECTIONS.forEach(d => {
+        const dd = D_D[d];
+        const b = this.getButton(d, () => {
+          this._x += dd.x;
+          this._y += dd.y;
+          this.queuePictureScale();
+        });
+        if (b) this._ctl_dr.push(b);
+        const b10 = this.getButton(d + "10", () => {
+          this._x += dd.x * 10;
+          this._y += dd.y * 10;
+          this.queuePictureScale();
+        });
+        if (b10) this._ctl_dr.push(b10);
       });
-      if (b) this._ctl_dr.push(b);
-      const b10 = this.getButton(d + "10", () => {
-        this._x += dd.x * 10;
-        this._y += dd.y * 10;
-        this.queuePictureScale();
+    }
+    // scale
+    {
+      const sv = document.getElementById("scale");
+      if (sv) this._ctl_sv = sv as HTMLInputElement;
+      SCALE_DIRECTIONS.forEach(d => {
+        const val = SD_D[d];
+        const b = this.getButton(d + "1", () => {
+          this._scaleval += val;
+          if (this._scaleval < SCALE_MIN) this._scaleval = SCALE_MIN;
+          if (this._scaleval > SCALE_MAX) this._scaleval = SCALE_MAX;
+          if (this._ctl_sv) this._ctl_sv.value = "" + this._scaleval;
+          this.queuePictureScale();
+        });
+        if (b) this._ctl_sb.push(b);
+        const b10 = this.getButton(d + "10", () => {
+          this._scaleval += val * 10;
+          if (this._scaleval < SCALE_MIN) this._scaleval = SCALE_MIN;
+          if (this._scaleval > SCALE_MAX) this._scaleval = SCALE_MAX;
+          if (this._ctl_sv) this._ctl_sv.value = "" + this._scaleval;
+          this.queuePictureScale();
+        });
+        if (b10) this._ctl_sb.push(b10);
       });
-      if (b10) this._ctl_dr.push(b10);
-    });
+    }
   }
 
   public setCanvas(ht: HeattecoGenerator): void {
@@ -227,7 +265,7 @@ class Controler {
 
   private queuePictureScale(): void {
     const s: IPictureScale = {
-      scale: 100,
+      scale: this._scaleval,
       x: this._x,
       y: this._y
     };
@@ -262,6 +300,8 @@ class Controler {
       if (!evt || !evt.target || !evt.target.result) return;
       img.onload = () => {
         if (!this._ht) return;
+        this._scaleval = 100;
+        if (this._ctl_sv) this._ctl_sv.value = "" + this._scaleval;
         this.onResetPos();
         this._ht.setImage(img);
         this._ht.draw();

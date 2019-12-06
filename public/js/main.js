@@ -11,6 +11,13 @@ var D_D = {
     down: { x: 0, y: 1 },
     right: { x: 1, y: 0 }
 };
+var SCALE_DIRECTIONS = ["minus", "plus"];
+var SD_D = {
+    minus: -1,
+    plus: 1
+};
+var SCALE_MIN = 1;
+var SCALE_MAX = 300;
 var CONTROL_INTERVAL = 300;
 var HeattecoGenerator = /** @class */ (function () {
     function HeattecoGenerator() {
@@ -93,11 +100,8 @@ var HeattecoGenerator = /** @class */ (function () {
     HeattecoGenerator.prototype.drawPicture = function () {
         if (!this.loaded || !this._ctx || !this._img)
             return;
-        console.log(this._scale);
-        // original size
-        console.log("" + this._img.naturalWidth + " x " + this._img.naturalHeight);
-        var w = this._img.naturalWidth;
-        var h = this._img.naturalHeight;
+        var w = (this._img.naturalWidth * this._scale.scale) / 100;
+        var h = (this._img.naturalHeight * this._scale.scale) / 100;
         this._ctx.drawImage(this._img, 0, 0, this._img.naturalWidth, this._img.naturalHeight, this._scale.x, this._scale.y, w, h);
     };
     HeattecoGenerator.prototype.drawText = function () {
@@ -126,13 +130,17 @@ var Controler = /** @class */ (function () {
         this._x = 0;
         this._y = 0;
         // scale
+        this._ctl_sb = [];
+        this._scaleval = 100;
         this._scale = DEFAULT_SCALE;
         this._scaleQueueId = -1;
         // text
-        var onchangetext = function () { return _this.onChangeText(); };
-        this._ctl_b = this.getTextInput("bigtext", onchangetext);
-        this._ctl_s1 = this.getTextInput("smalltext1", onchangetext);
-        this._ctl_s2 = this.getTextInput("smalltext2", onchangetext);
+        {
+            var onchangetext = function () { return _this.onChangeText(); };
+            this._ctl_b = this.getTextInput("bigtext", onchangetext);
+            this._ctl_s1 = this.getTextInput("smalltext1", onchangetext);
+            this._ctl_s2 = this.getTextInput("smalltext2", onchangetext);
+        }
         // picfile
         {
             var pf = document.getElementById("picfile");
@@ -149,24 +157,59 @@ var Controler = /** @class */ (function () {
             }
         }
         // pos
-        this._ctl_pr = this.getButton("pos_reset", function () { return _this.onResetPos(); });
-        DIRECTIONS.forEach(function (d) {
-            var dd = D_D[d];
-            var b = _this.getButton(d, function () {
-                _this._x += dd.x;
-                _this._y += dd.y;
-                _this.queuePictureScale();
+        {
+            this._ctl_pr = this.getButton("pos_reset", function () { return _this.onResetPos(); });
+            DIRECTIONS.forEach(function (d) {
+                var dd = D_D[d];
+                var b = _this.getButton(d, function () {
+                    _this._x += dd.x;
+                    _this._y += dd.y;
+                    _this.queuePictureScale();
+                });
+                if (b)
+                    _this._ctl_dr.push(b);
+                var b10 = _this.getButton(d + "10", function () {
+                    _this._x += dd.x * 10;
+                    _this._y += dd.y * 10;
+                    _this.queuePictureScale();
+                });
+                if (b10)
+                    _this._ctl_dr.push(b10);
             });
-            if (b)
-                _this._ctl_dr.push(b);
-            var b10 = _this.getButton(d + "10", function () {
-                _this._x += dd.x * 10;
-                _this._y += dd.y * 10;
-                _this.queuePictureScale();
+        }
+        // scale
+        {
+            var sv = document.getElementById("scale");
+            if (sv)
+                this._ctl_sv = sv;
+            SCALE_DIRECTIONS.forEach(function (d) {
+                var val = SD_D[d];
+                var b = _this.getButton(d + "1", function () {
+                    _this._scaleval += val;
+                    if (_this._scaleval < SCALE_MIN)
+                        _this._scaleval = SCALE_MIN;
+                    if (_this._scaleval > SCALE_MAX)
+                        _this._scaleval = SCALE_MAX;
+                    if (_this._ctl_sv)
+                        _this._ctl_sv.value = "" + _this._scaleval;
+                    _this.queuePictureScale();
+                });
+                if (b)
+                    _this._ctl_sb.push(b);
+                var b10 = _this.getButton(d + "10", function () {
+                    _this._scaleval += val * 10;
+                    if (_this._scaleval < SCALE_MIN)
+                        _this._scaleval = SCALE_MIN;
+                    if (_this._scaleval > SCALE_MAX)
+                        _this._scaleval = SCALE_MAX;
+                    if (_this._ctl_sv)
+                        _this._ctl_sv.value = "" + _this._scaleval;
+                    _this.queuePictureScale();
+                });
+                if (b10)
+                    _this._ctl_sb.push(b10);
             });
-            if (b10)
-                _this._ctl_dr.push(b10);
-        });
+        }
     }
     Object.defineProperty(Controler.prototype, "loaded", {
         get: function () {
@@ -175,7 +218,9 @@ var Controler = /** @class */ (function () {
                 !this._ctl_s2 ||
                 !this._ctl_file ||
                 !this._ctl_pr ||
-                this._ctl_dr.length != 8);
+                this._ctl_dr.length != 8 ||
+                !this._ctl_sv ||
+                this._ctl_sb.length != 4);
         },
         enumerable: true,
         configurable: true
@@ -195,7 +240,7 @@ var Controler = /** @class */ (function () {
     Controler.prototype.queuePictureScale = function () {
         var _this = this;
         var s = {
-            scale: 100,
+            scale: this._scaleval,
             x: this._x,
             y: this._y
         };
@@ -231,6 +276,9 @@ var Controler = /** @class */ (function () {
             img.onload = function () {
                 if (!_this._ht)
                     return;
+                _this._scaleval = 100;
+                if (_this._ctl_sv)
+                    _this._ctl_sv.value = "" + _this._scaleval;
                 _this.onResetPos();
                 _this._ht.setImage(img);
                 _this._ht.draw();
